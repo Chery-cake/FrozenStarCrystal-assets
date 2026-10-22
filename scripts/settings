@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+CONFIG_FILE="${FSC_CONFIG_FILE:-$PROJECT_ROOT/.fsc_config}"
+
+# ---------------------------------------------------------------------------
+# Schema: "VAR|DEFAULT|DESCRIPTION|FORWARD"
+#   FORWARD is "NO"    -> script-only (used to drive the build invocation)
+#   FORWARD is "YES"   -> forwarded to CMake as -D<VAR>=<value>
+# ---------------------------------------------------------------------------
+SCHEMA=(
+    "BUILD_SYSTEM|Ninja|CMake generator (Ninja, Unix Makefiles, ...)|NO"
+    "BUILD_TYPE|Debug|Build type (Debug, Release, RelWithDebInfo, MinSizeRel)|YES"
+    "ENABLE_TESTS|ON|Build and register tests (ON/OFF)|YES"
+    "SANITIZERS|address,undefined|Sanitizers (comma-separated, or empty)|YES"
+    "ENABLE_LTO|ON|Link-time optimization (ON/OFF)|YES"
+    "BUILD_SHARED_LIBS|ON|Build shared libraries (ON/OFF)|YES"
+    "WARNINGS_LEVEL|2|Warning level 0-2|YES"
+    "TREAT_WARNINGS_AS_ERRORS|OFF|Treat warnings as errors (ON/OFF)|YES"
+    "TOOLCHAIN||Cross-compile target platform (empty = native build)|NO"
+    "CMAKE_EXTRA_FLAGS||Extra flags appended to the cmake command|NO"
+)
+
+# Optional per-project additions. Define PROJECT_SCHEMA=(...) there.
+if [ -f "$SCRIPT_DIR/.schema" ]; then
+    # shellcheck disable=SC1090
+    source "$SCRIPT_DIR/.schema"
+    SCHEMA+=("${PROJECT_SCHEMA[@]}")
+fi
+
+# ---------------------------------------------------------------------------
+# Schema helpers
+# ---------------------------------------------------------------------------
+_schema_field() {
+    local want="$1" idx="$2" entry var val
+    for entry in "${SCHEMA[@]}"; do
+        var="${entry%%|*}"
+        [ "$var" = "$want" ] || continue
+        case $idx in
+            2) val="${entry#*|}"; echo "${val%%|*}" ;;
+            3) val="${entry#*|}"; val="${val#*|}"; echo "${val%%|*}" ;;
+            4) echo "${entry##*|}" ;;
+        esac
+        return
+    done
+}
+
+_cli_flag_for() { echo "--$(echo "$1" | tr '[:upper:]_' '[:lower:]-')"; }
+
+# ---------------------------------------------------------------------------
+# Create config if missing
+# ---------------------------------------------------------------------------
+if [ ! -f "$CONFIG_FILE" ]; then
+    {
+        echo "# FSC configuration — edit via: scripts/settings --<key> <value>"
+        echo ""
+        for entry in "${SCHEMA[@]}"; do
+            var="${entry%%|*}"
+            printf "export %s='%s'\n" "$var" "$(_schema_field "$var" 2)"
+        done
+    } > "$CONFIG_FILE"
+    echo "Created default config at $CONFIG_FILE"
+fi
+
+# shellcheck disable=SC1090
+source "$CONFIG_FILE"
+
+# ---------------------------------------------------------------------------
+# Parse CLI
+# ---------------------------------------------------------------------------
+declare -A NEW=()
+initial_args=$#
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --help|-h)
+            echo "Usage: scripts/settings [--<key> <value> ...]"
+            echo ""
+            echo "Available settings:"
+            for entry in "${SCHEMA[@]}"; do
+                var="${entry%%|*}"
+                printf "  %-36s %s\n" "$(_cli_flag_for "$var") <value>" "$(_schema_field "$var" 3)"
+            done
+            echo ""
+            echo "Config file: $CONFIG_FILE"
+            exit 0
+            ;;
+        --*)
+            found=0
+            for entry in "${SCHEMA[@]}"; do
+                var="${entry%%|*}"
+                if [ "$1" = "$(_cli_flag_for "$var")" ]; then
+                    [ $# -ge 2 ] || { echo "Missing value for $1" >&2; exit 1; }
+                    NEW["$var"]="$2"
+                    shift 2
+                    found=1
+                    break
+                fi
+            done
+            if [ $found -eq 0 ]; then
+                echo "Unknown option: $1" >&2
+                echo "Run 'scripts/settings --help' for a list." >&2
+                exit 1
+            fi
+            ;;
+        *)
+            echo "Unexpected argument: $1" >&2
+            exit 1
+            ;;
+    esac
+done
+
+# ---------------------------------------------------------------------------
+# Apply overrides, fill missing defaults, write back
+# ---------------------------------------------------------------------------
+for entry in "${SCHEMA[@]}"; do
+    var="${entry%%|*}"
+    def="$(_schema_field "$var" 2)"
+
+    if [[ -v NEW[$var] ]]; then
+        declare -g "$var=${NEW[$var]}"
+    elif [ -z "${!var+x}" ]; then
+        declare -g "$var=$def"
+    fi
+done
+
+{
+    echo "# FSC configuration — edit via: scripts/settings --<key> <value>"
+    echo ""
+    for entry in "${SCHEMA[@]}"; do
+        var="${entry%%|*}"
+        printf "export %s='%s'\n" "$var" "${!var}"
+    done
+} > "$CONFIG_FILE"
+
+# ---------------------------------------------------------------------------
+# Report
+# ---------------------------------------------------------------------------
+[ $initial_args -ne 0 ] && echo "Settings written to $CONFIG_FILE"
+
+echo "Current settings (from $CONFIG_FILE):"
+for entry in "${SCHEMA[@]}"; do
+    var="${entry%%|*}"
+    printf "  %-24s = %s\n" "$var" "${!var}"
+done

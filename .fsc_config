@@ -1,0 +1,12 @@
+# FSC configuration — edit via: scripts/settings --<key> <value>
+
+export BUILD_SYSTEM='Ninja'
+export BUILD_TYPE='Debug'
+export ENABLE_TESTS='ON'
+export SANITIZERS='address,undefined'
+export ENABLE_LTO='ON'
+export BUILD_SHARED_LIBS='ON'
+export WARNINGS_LEVEL='2'
+export TREAT_WARNINGS_AS_ERRORS='OFF'
+export TOOLCHAIN=''
+export CMAKE_EXTRA_FLAGS='-DCMAKE_CXX_COMPILER_AR=/nix/store/0vkrnbzfkjvkv70wp8dw829dhzrp16xy-llvm-22.1.8/bin/llvm-ar -DCMAKE_CXX_COMPILER_RANLIB=/nix/store/0vkrnbzfkjvkv70wp8dw829dhzrp16xy-llvm-22.1.8/bin/llvm-ranlib -DCMAKE_LINKER_TYPE=LLD'
