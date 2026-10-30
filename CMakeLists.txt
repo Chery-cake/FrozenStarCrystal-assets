@@ -57,6 +57,7 @@ add_module(
         FrozenStarCrystal-core
         GTMesh
         oiio
+        FFmpeg
 )
 
 # ------------------------------------------------------------------------------

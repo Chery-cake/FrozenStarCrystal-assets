@@ -78,20 +78,12 @@
             lld
             glibcDev
             llvmTools
-
-            pkgs.tbb.dev
-
-            #pkgs.imath
-            #pkgs.openexr
-            #pkgs.openexr.dev
-            #pkgs.opencolorio
-            #pkgs.openimageio
-            #pkgs.openimageio.dev
           ];
 
           env = {
             CXXFLAGS = flags;
             CFLAGS = flags;
+
             NIX_LDFLAGS = with builtins; concatStringsSep " " [
               "-L${gccUnwrapped}/lib"
               "-L${gccUnwrapped}/lib64"
@@ -99,9 +91,6 @@
             CXX_MODULES_JSON = "${gccUnwrapped}/lib/libstdc++.modules.json";
             USE_LLVM_LTO = "1";
             NIX_HARDENING_ENABLE = hardeningDisableFortify;
-
-            TBB_DIR = "${pkgs.tbb.dev}/lib/cmake/TBB";
-            #CMAKE_PREFIX_PATH = "${pkgs.openimageio.dev}";
           };
 
           shellHook = ''

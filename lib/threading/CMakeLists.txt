@@ -2,22 +2,6 @@
 # Threading Dependencies
 # ==============================================================================
 
-find_package(TBB QUIET)   # NOT REQUIRED
-
-if(TBB_FOUND)
-    message(STATUS "Using system TBB at ${TBB_DIR}")
-
-    # TBB_DIR points at <prefix>/lib/cmake/TBB or <prefix>/lib64/cmake/TBB.
-    get_filename_component(_tbb_prefix "${TBB_DIR}/../../.." ABSOLUTE)
-
-    set(FSC_TBB_INJECT_ARGS
-        "-DTBB_DIR=${TBB_DIR}"
-        "-DCMAKE_PREFIX_PATH=${_tbb_prefix}"
-        CACHE STRING "CMAKE_ARGS to inject TBB into sub-builds" FORCE)
-    set(FSC_TBB_BUILD_TARGET "" CACHE STRING
-        "ExternalProject target that must finish before consumers of TBB" FORCE)
-endif()
-
 fsc_add_external_project(
     NAME               TBB
     GITHUB_REPOSITORY  uxlfoundation/onetbb
@@ -35,26 +19,23 @@ fsc_add_external_project(
         "-DCMAKE_CXX_SHARED_LINKER_FLAGS=-Wl,--undefined-version"
 )
 
-if(NOT FSC_TBB_INJECT_ARGS AND NOT FSC_TBB_BUILD_TARGET)
+# Promote to CACHE so sibling directory scopes (e.g. lib/assets/) can see it.
+# fsc_add_external_project only sets this in *this* directory's scope via
+# PARENT_SCOPE, which siblings do not inherit.
+set(FSC_TBB_INSTALL_DIR "${FSC_TBB_INSTALL_DIR}" CACHE STRING
+    "TBB install prefix" FORCE)
 
-    # FSC_TBB_INSTALL_DIR is visible HERE (PARENT_SCOPE from the helper),
-    # so we can read it now and cache the result for siblings.
+if(NOT FSC_TBB_INJECT_ARGS)
     set(FSC_TBB_INJECT_ARGS
         "-DTBB_ROOT=${FSC_TBB_INSTALL_DIR}"
         "-DCMAKE_PREFIX_PATH=${FSC_TBB_INSTALL_DIR}"
         CACHE STRING "CMAKE_ARGS to inject TBB into sub-builds" FORCE)
-    set(FSC_TBB_BUILD_TARGET "_TBB" CACHE STRING
-        "ExternalProject target that must finish before consumers of TBB" FORCE)
-
 endif()
 
-# Create an interface library to abstract the actual TBB target name
-add_library(tbb INTERFACE)
-
-if(TARGET TBB::tbb)
-    target_link_libraries(tbb INTERFACE TBB::tbb)
-elseif(TARGET TBB)
-    target_link_libraries(tbb INTERFACE TBB)
-endif()
+# Always sync to the target that actually exists this configure. When TBB
+# is reused from a shared prefix, FSC_TBB_TARGET is "" and this clears the
+# stale "_TBB" from a prior configure.
+set(FSC_TBB_BUILD_TARGET "${FSC_TBB_TARGET}" CACHE STRING
+    "ExternalProject target that must finish before consumers of TBB" FORCE)
 
 message(STATUS "Threading dependencies configured")

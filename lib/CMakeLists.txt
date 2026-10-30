@@ -15,7 +15,6 @@ fsc_cpm_or_local(FrozenStarCrystal-core
     DOWNLOAD_AND_ADD_SUBDIRECTORY
     OPTIONS
         "ENABLE_TESTS OFF"
-        "FSC_TESTS OFF"
 )
 
 if(NOT TARGET FrozenStarCrystal-core)
