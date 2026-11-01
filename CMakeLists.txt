@@ -55,9 +55,9 @@ add_subdirectory(lib)
 add_module(
     PUBLIC_DEPS
         FrozenStarCrystal-core
-        GTMesh
         oiio
         FFmpeg
+        assimp
 )
 
 # ------------------------------------------------------------------------------

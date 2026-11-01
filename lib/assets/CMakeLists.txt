@@ -294,13 +294,15 @@ else()
         "OpenImageIO target exists")
 endif()
 
-fsc_add_library(
-    NAME GTMesh
-    GITHUB_REPOSITORY Tomas-Jakubec/GTMesh
-    GIT_TAG          master
-    CPM_ARGS         DOWNLOAD_ONLY YES
-    POST_ADD_COMMANDS [[
-        add_library(GTMesh INTERFACE)
-        target_include_directories(GTMesh INTERFACE "${GTMesh_SOURCE_DIR}/src")
-    ]]
+fsc_add_external_project(
+    NAME               assimp
+    GITHUB_REPOSITORY  assimp/assimp
+    GIT_TAG            v6.0.5
+    INSTALL_SUBDIR     assimp
+    INSTALL_HEADER     include/assimp/Importer.hpp
+    CMAKE_ARGS
+        -DASSIMP_BUILD_TESTS=OFF
+        -DASSIMP_BUILD_ASSIMP_TOOLS=OFF
+        -DASSIMP_BUILD_SAMPLES=OFF
+        -DASSIMP_INSTALL=ON
 )
